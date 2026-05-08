@@ -1,0 +1,20 @@
+/*
+Making warehouse using bronze, silver and gold
+
+Step 1: Create database
+Step 2: Create schema 
+*/
+
+
+USE MASTER;
+-- Creating datawarehouse
+Create Database Datawarehouse;
+
+USE Datawarehouse;
+
+ -- Creating schema
+CREATE SCHEMA bronze;
+GO
+Create schema silver;
+GO
+Create schema gold;
