@@ -1,1 +1,167 @@
+-- CRM AND ERM check for silver
+-- check for null and duplication of primary  keys
+-- expectation = no duplicates
+-- product 
+select prd_id, count(*) from bronze.crm_prd_info
+group by prd_id
+having count(*) >1 or prd_id  IS NULL;
+-- cust
+select * from  bronze.crm_cust_info;
+
+-- marital status cust
+
+select cst_firstname from silver.crm_cust_info
+where cst_firstname != trim(cst_firstname);
+
+-- checking gender
+
+select cst_gndr from bronze.crm_cust_info
+where cst_gndr != trim(cst_gndr);
+
+-- CHECKING marital status 
+
+select DISTINCT(cst_marital_status) from bronze.crm_cust_info;
+where cst_marital_status != trim(cst_marital_status);
+
+SELECT 
+prd_id, 
+prd_key,
+prd_nm,
+prd_cost,
+prd_line,
+prd_start_dt,
+prd_end_dt
+from bronze.crm_prd_info;
+
+-- product
+-- checking cost
+
+select prd_cost from bronze.crm_prd_info
+where prd_cost!= trim(prd_cost);
+--all 
+select * from bronze.crm_prd_info;
+--where prd_cost!= trim(prd_cost);
+
+--sales 
+select LEFT(prd_key,5) AS sls, right(prd_key,10) AS edited_prd_key from bronze.crm_prd_info;
+select * from bronze.crm_sales_detail;
+
+select 
+prd_id, 
+prd_key,
+prd_nm,
+prd_cost,
+prd_line,
+prd_start_dt,
+prd_end_dt,
+lead(prd_start_dt) OVER( partition by prd_key order by prd_start_dt) - 1 as test
+from bronze.crm_prd_info
+--where prd_start_dt >= prd_end_dt
+where prd_key IN ('AC-HE-HL-U509-R','AC-HE-HL-U509');
+
+
+-- silver
+-- crm sales details
+select sls_ord_num,
+sls_prd_key,
+sls_cust_id,
+sls_order_dt,
+sls_ship_dt,
+sls_due_dt,
+sls_sales,
+sls_quantity,
+sls_price
+from bronze.crm_sales_details;
+
+-- check the quality of sls_ord_num
+select * from bronze.crm_sales_details
+where sls_ord_num != TRIM(sls_ord_num); -- ALL GOOD
+
+-- Check the quality of prd_key
+select * from bronze.crm_sales_details
+where sls_prd_key != TRIM(sls_prd_key ); -- ALL GOOD
+
+-- check if all product key is present in prdoct info
+
+select * from bronze.crm_sales_details
+where sls_prd_key NOT IN (select prd_key from silver.crm_prd_info); -- all good means all prd key can use
+
+-- Check the quality of prd_id
+select * from bronze.crm_sales_details
+where sls_cust_id NOT IN (select cst_id  from silver.crm_cust_info); -- All good
+
+-- check for order date
+select NULLIF(sls_order_dt,0) as sls_order_dt from bronze.crm_sales_details
+where sls_order_dt <= 0 or len(sls_order_dt) != 8;  
+
+-- check the quality for sls ship date
+select NULLIF(sls_ship_dt,0) as sls_ship_dt from bronze.crm_sales_details
+where sls_ship_dt <= 0 or len(sls_ship_dt) != 8;  
+
+-- check the quality for sls ship date
+select NULLIF(sls_ship_dt,0) as sls_ship_dt from bronze.crm_sales_details
+where sls_ship_dt <= 0 or len(sls_ship_dt) != 8;  
+
+-- check if order date sould be come first the ship date or due date
+select * from bronze.crm_sales_details
+where sls_order_dt > sls_ship_dt or sls_order_dt > sls_due_dt;
+
+-- now business rule where Quantity *  price = sales
+select DISTINCT 
+sls_sales as old_sls_sales,
+sls_quantity,
+sls_price as old_sls_price,
+case when sls_sales IS NULL or sls_sales <= 0 or sls_sales != sls_quantity * ABS(sls_price) then sls_quantity * ABS(sls_price)
+	else sls_sales
+END as sls_sales,
+case when sls_price IS NULL oR sls_price <= 0 then
+	sls_sales/nullif(sls_quantity,0)
+	else sls_price
+end as sls_price
+from bronze.crm_sales_details;
+
+/*where sls_sales != (sls_quantity * sls_price) or sls_quantity IS NULL or
+sls_sales is NULL OR sls_price IS NULL or sls_quantity <= 0 or
+sls_sales <= 0 OR sls_price <= 0 
+order by sls_sales, sls_quantity, sls_price;*/
+
+--erm
+-- cust az12
+select
+CID,
+trim(upper(substring(CID,4,len(CID)))) AS ID,
+trim(upper(substring(CID,9,len(CID)))) as cst_key,  
+case when BDATE > GETDATe() then NULL
+else BDATE
+END AS BDATE,
+CASE when UPPER(trim(GEN)) = 'M' or UPPER(trim(GEN))  ='Male' THEN 'Male'
+WHEN UPPER(trim(GEN))  = 'F' or UPPER(trim(GEN))  ='Female' THEN 'Female'
+Else 'n/a'
+end as GEN
+from bronze.erm_cust_AZ12;
+
+select * from silver.erm_cust_AZ12;
+
+-- silver loc A101
+select replace(CID,'-',''), 
+case when trim(CNTRY) = 'DE' then 'GERMANY'
+	when trim(CNTRY) IN ('US','USA') THEN 'United States'
+	when trim(cntry) = '' OR cntry IS NULL then 'n/a'
+	ELSE trim(cntry)
+END AS CNTRY
+from bronze.erm_loc_A101;
+
+
+-- checking the quality of cntry in erm loc a101
+select DISTINCT CNTRY from bronze.erm_loc_A101
+order by cntry;
+
+--  silver px cat G1V2
+select 
+ID, 
+CAT, 
+SUBCAT, 
+MAINTENANCE 
+from bronze.erm_px_cat_G1V2;
+
 
